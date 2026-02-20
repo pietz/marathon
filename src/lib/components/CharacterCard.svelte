@@ -123,7 +123,7 @@
 		border: 1px solid var(--char-color);
 		border-radius: 16px;
 		padding: 2rem;
-		max-width: 640px;
+		max-width: 540px;
 		width: 100%;
 		max-height: 85vh;
 		overflow-y: auto;

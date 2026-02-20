@@ -90,7 +90,8 @@ export const characters: Character[] = [
 		funFacts: [
 			'Keiner kann etwas Schlechtes über ihn sagen. Außer seine Ex-Frau.',
 			'50 % aller WhatsApps an ihn starten mit: Kurze medizinische Frage.',
-			'Entschuldigt sich beim Überholen.'
+			'Entschuldigt sich beim Überholen.',
+			'Kann nicht Nein sagen. Deshalb läuft er jetzt auch einen Marathon.'
 		],
 		imageFront: `${base}/images/jonas.png`,
 		imageBack: null

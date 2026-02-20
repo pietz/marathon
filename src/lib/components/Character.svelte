@@ -373,23 +373,37 @@
 		}
 	}
 
-	/* Spotlight */
+	/* Spotlight — top and bottom glow */
 	.spotlight {
 		position: absolute;
-		top: -20%;
 		left: 50%;
 		transform: translateX(-50%);
 		width: 120%;
-		height: 120%;
+		height: 80%;
+		opacity: 0;
+		transition: opacity 0.4s ease;
+		pointer-events: none;
+		z-index: -1;
+		top: -10%;
 		background: radial-gradient(
 			ellipse at 50% 0%,
 			color-mix(in srgb, var(--char-color) 15%, transparent),
 			transparent 60%
 		);
-		opacity: 0;
-		transition: opacity 0.4s ease;
-		pointer-events: none;
-		z-index: -1;
+	}
+
+	.spotlight::after {
+		content: '';
+		position: absolute;
+		bottom: -80%;
+		left: 0;
+		width: 100%;
+		height: 100%;
+		background: radial-gradient(
+			ellipse at 50% 100%,
+			color-mix(in srgb, var(--char-color) 15%, transparent),
+			transparent 60%
+		);
 	}
 
 	.character-slot.hovered .spotlight,

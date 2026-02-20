@@ -30,7 +30,19 @@
 	<header class="title-area">
 		<h1 class="title">
 			<span class="title-sub">Choose Your</span>
-			<span class="title-main">Runner</span>
+			<span class="title-main-wrapper">
+				<span class="speed-lines back" aria-hidden="true">
+					{#each Array(4) as _, i}
+						<span class="streak" style="--i: {i}; --y: {15 + i * 22}%; --len: {30 + (i * 17) % 40}px; --delay: {i * 0.7 + 0.2}s; --dur: {0.5 + (i % 3) * 0.15}s;"></span>
+					{/each}
+				</span>
+				<span class="title-main">Runner</span>
+				<span class="speed-lines front" aria-hidden="true">
+					{#each Array(3) as _, i}
+						<span class="streak" style="--i: {i + 4}; --y: {25 + i * 25}%; --len: {20 + (i * 23) % 35}px; --delay: {i * 0.9 + 0.5}s; --dur: {0.4 + (i % 2) * 0.2}s;"></span>
+					{/each}
+				</span>
+			</span>
 		</h1>
 		<p class="event-name">HAMBURG MARATHON 2026</p>
 	</header>
@@ -115,6 +127,56 @@
 		text-shadow:
 			0 0 20px rgba(255, 255, 255, 0.3),
 			0 0 60px rgba(100, 100, 255, 0.2);
+	}
+
+	.title-main-wrapper {
+		position: relative;
+		display: inline-block;
+	}
+
+	.speed-lines {
+		position: absolute;
+		inset: 0;
+		overflow: hidden;
+		pointer-events: none;
+	}
+
+	.speed-lines.back {
+		z-index: -1;
+	}
+
+	.speed-lines.front {
+		z-index: 1;
+	}
+
+	.streak {
+		position: absolute;
+		top: var(--y);
+		right: 100%;
+		width: var(--len);
+		height: 2px;
+		background: linear-gradient(90deg, transparent, rgba(150, 180, 255, 0.8), transparent);
+		border-radius: 1px;
+		opacity: 0;
+		animation: streak-fly var(--dur) ease-in var(--delay) infinite;
+		box-shadow: 0 0 4px rgba(150, 180, 255, 0.5);
+	}
+
+	@keyframes streak-fly {
+		0% {
+			right: 100%;
+			opacity: 0;
+		}
+		10% {
+			opacity: 1;
+		}
+		90% {
+			opacity: 1;
+		}
+		100% {
+			right: -50%;
+			opacity: 0;
+		}
 	}
 
 	.title-main {
