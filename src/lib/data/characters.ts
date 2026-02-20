@@ -62,12 +62,12 @@ export const characters: Character[] = [
 			{ label: 'Erfahrung', value: 39, display: '39' },
 			{ label: 'Hilfeleistung', value: 13, display: '13' }
 		],
-		quote: '"Kann leider nicht – hab Punktspiel."',
+		quote: '"Entschuldigung, dass ich zu spät bin. Hatte keine Lust."',
 		funFacts: [
 			'Auge-Hand-Koordination – Weltklasse.',
 			'Auge-Umzugskarton-Koordination – nicht existent.',
 			'Besitzt eine Bohrmaschine. Originalverpackt. Seit 2019.',
-			'Findet immer jemanden, der für ihn anpackt – und nennt es Führungsqualität.'
+			'Lässt andere für sich arbeiten und nennt es Führungsqualität.'
 		],
 		imageFront: `${base}/images/kevin.png`,
 		imageBack: null
