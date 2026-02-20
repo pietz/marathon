@@ -104,7 +104,7 @@ export const characters: Character[] = [
 		color: '#2ecc71',
 		accentColor: '#27ae60',
 		stats: [
-			{ label: 'Tempo', value: 77, display: '77' },
+			{ label: 'Tempo', value: 68, display: '68' },
 			{ label: 'Ausdauer', value: 68, display: '68' },
 			{ label: 'Kampfgeist', value: 88, display: '88' },
 			{ label: 'Erfahrung', value: 83, display: '83' },

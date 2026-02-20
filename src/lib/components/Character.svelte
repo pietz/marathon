@@ -139,8 +139,9 @@
 		<span class="subtitle">{character.subtitle}</span>
 	</div>
 
-	<!-- Spotlight effect -->
-	<div class="spotlight"></div>
+	<!-- Spotlight effects (top + bottom) -->
+	<div class="spotlight spotlight-top"></div>
+	<div class="spotlight spotlight-bottom"></div>
 </button>
 
 <style>
@@ -373,36 +374,34 @@
 		}
 	}
 
-	/* Spotlight — top and bottom glow */
+	/* Spotlight glow — top and bottom */
 	.spotlight {
 		position: absolute;
 		left: 50%;
 		transform: translateX(-50%);
-		width: 120%;
-		height: 80%;
+		width: 150%;
+		height: 60%;
 		opacity: 0;
 		transition: opacity 0.4s ease;
 		pointer-events: none;
 		z-index: -1;
-		top: -10%;
+	}
+
+	.spotlight-top {
+		top: -15%;
 		background: radial-gradient(
-			ellipse at 50% 0%,
-			color-mix(in srgb, var(--char-color) 15%, transparent),
-			transparent 60%
+			ellipse at 50% 50%,
+			color-mix(in srgb, var(--char-color) 12%, transparent),
+			transparent 70%
 		);
 	}
 
-	.spotlight::after {
-		content: '';
-		position: absolute;
-		bottom: -80%;
-		left: 0;
-		width: 100%;
-		height: 100%;
+	.spotlight-bottom {
+		bottom: 0;
 		background: radial-gradient(
-			ellipse at 50% 100%,
-			color-mix(in srgb, var(--char-color) 15%, transparent),
-			transparent 60%
+			ellipse at 50% 50%,
+			color-mix(in srgb, var(--char-color) 18%, transparent),
+			transparent 70%
 		);
 	}
 

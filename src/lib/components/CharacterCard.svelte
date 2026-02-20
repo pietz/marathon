@@ -12,15 +12,17 @@
 	let visible = $state(false);
 
 	$effect(() => {
-		// Trigger entrance animation on next frame
+		// Double rAF ensures the initial (hidden) state renders first,
+		// then triggers the transition to visible
 		requestAnimationFrame(() => {
-			visible = true;
+			requestAnimationFrame(() => {
+				visible = true;
+			});
 		});
 	});
 
 	function handleClose() {
-		visible = false;
-		setTimeout(onClose, 300);
+		onClose();
 	}
 
 	function handleBackdropClick(e: MouseEvent) {
@@ -105,7 +107,7 @@
 		align-items: center;
 		justify-content: center;
 		z-index: 100;
-		transition: background 0.3s ease;
+		transition: background 0.6s ease, backdrop-filter 0.6s ease;
 		padding: 2rem;
 	}
 
@@ -130,9 +132,9 @@
 		box-shadow:
 			0 0 30px color-mix(in srgb, var(--char-color) 20%, transparent),
 			0 20px 60px rgba(0, 0, 0, 0.5);
-		transform: scale(0.8) translateY(20px);
+		transform: scale(0.9) translateY(10px);
 		opacity: 0;
-		transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+		transition: all 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) 0.15s;
 	}
 
 	.card.visible {
