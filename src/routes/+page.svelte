@@ -1,5 +1,11 @@
 <script lang="ts">
 	import CharacterSelect from '$lib/components/CharacterSelect.svelte';
+	import { audio } from '$lib/audio';
+	import { onMount } from 'svelte';
+
+	onMount(() => {
+		audio.preload();
+	});
 </script>
 
 <svelte:head>

@@ -1,15 +1,16 @@
 // Audio manager for character selection sounds
-// Uses MP3 sound files for hover and select interactions
+// Preloads raw MP3 data on page load, decodes on first user gesture
 
 import { base } from '$app/paths';
 
 // Click sounds mapped to characters by index: Tobi, Kevin, Jonas, Alex
-const selectSounds = [
+const selectSoundPaths = [
 	`${base}/sounds/whoa.mp3`,
 	`${base}/sounds/mamma-mia.mp3`,
 	`${base}/sounds/yipee.mp3`,
 	`${base}/sounds/yeahoo.mp3`
 ];
+const hoverSoundPath = `${base}/sounds/coin.mp3`;
 
 class AudioManager {
 	private context: AudioContext | null = null;
@@ -17,11 +18,33 @@ class AudioManager {
 	private selectBuffers: (AudioBuffer | null)[] = [null, null, null, null];
 	private initialized = false;
 
-	/** Must be called from a user gesture (click/hover handler) */
+	// Raw ArrayBuffers fetched eagerly (no AudioContext needed)
+	private rawHover: ArrayBuffer | null = null;
+	private rawSelect: (ArrayBuffer | null)[] = [null, null, null, null];
+	private preloaded = false;
+
+	/** Fetch raw MP3 bytes on page load — no user gesture needed */
+	preload() {
+		if (this.preloaded) return;
+		this.preloaded = true;
+
+		fetch(hoverSoundPath)
+			.then((r) => r.arrayBuffer())
+			.then((buf) => { this.rawHover = buf; })
+			.catch(() => {});
+
+		selectSoundPaths.forEach((path, i) => {
+			fetch(path)
+				.then((r) => r.arrayBuffer())
+				.then((buf) => { this.rawSelect[i] = buf; })
+				.catch(() => {});
+		});
+	}
+
+	/** Decode preloaded data — must be called from a user gesture */
 	async init() {
 		if (this.initialized) return;
 
-		// Always create a fresh context during user gesture
 		this.context = new AudioContext();
 		const ctx = this.context;
 
@@ -29,35 +52,26 @@ class AudioManager {
 			await ctx.resume();
 		}
 
-		// Load all sounds in parallel
 		try {
-			const loads = [
-				this.loadSound(ctx, `${base}/sounds/coin.mp3`).then((buf) => {
-					this.hoverBuffer = buf;
-				}),
-				...selectSounds.map((path, i) =>
-					this.loadSound(ctx, path).then((buf) => {
-						this.selectBuffers[i] = buf;
-					})
-				)
-			];
-			await Promise.all(loads);
+			// Decode pre-fetched buffers (fast — no network wait)
+			if (this.rawHover) {
+				this.hoverBuffer = await ctx.decodeAudioData(this.rawHover);
+				this.rawHover = null;
+			}
+
+			await Promise.all(
+				this.rawSelect.map(async (raw, i) => {
+					if (raw) {
+						this.selectBuffers[i] = await ctx.decodeAudioData(raw);
+						this.rawSelect[i] = null;
+					}
+				})
+			);
+
 			this.initialized = true;
 		} catch (e) {
-			// Reset so next gesture can retry
 			console.warn('Audio init failed, will retry on next interaction', e);
 			this.context = null;
-		}
-	}
-
-	private async loadSound(ctx: AudioContext, url: string): Promise<AudioBuffer | null> {
-		try {
-			const response = await fetch(url);
-			const arrayBuffer = await response.arrayBuffer();
-			return await ctx.decodeAudioData(arrayBuffer);
-		} catch (e) {
-			console.warn(`Failed to load sound: ${url}`, e);
-			return null;
 		}
 	}
 
