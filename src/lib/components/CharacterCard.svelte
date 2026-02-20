@@ -55,14 +55,10 @@
 			</div>
 			<div class="card-age">
 				<span class="age-number">{character.age}</span>
-				<span class="age-label">ALTER{character.id === 'alex' ? '*' : ''}</span>
+				<span class="age-label">ALTER</span>
 			</div>
 			<button class="close-btn" onclick={handleClose} aria-label="Close">✕</button>
 		</div>
-
-		{#if character.id === 'alex'}
-			<p class="age-disclaimer">* Offiziell. Das wahre Alter ist Verschlusssache.</p>
-		{/if}
 
 		<!-- Stats -->
 		<div class="stats-section">
@@ -127,7 +123,7 @@
 		border: 1px solid var(--char-color);
 		border-radius: 16px;
 		padding: 2rem;
-		max-width: 480px;
+		max-width: 640px;
 		width: 100%;
 		max-height: 85vh;
 		overflow-y: auto;
