@@ -370,7 +370,7 @@
 
 <svelte:head>
 	<title>Marathon Tracking · Hamburg 2026</title>
-	<meta name="theme-color" content="#1d2b41" />
+	<meta name="theme-color" content="#e6e9ee" />
 	<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 	<link rel="preconnect" href="https://fonts.googleapis.com" />
 	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -494,24 +494,24 @@
 	:global(html, body) {
 		margin: 0;
 		padding: 0;
-		background: #1d2b41;
-		color: #eef0f4;
+		background: #e6e9ee;
+		color: #131720;
 		font-family: 'Inter Tight', system-ui, -apple-system, sans-serif;
 		-webkit-font-smoothing: antialiased;
 		-moz-osx-font-smoothing: grayscale;
 	}
 
 	.page {
-		--bg: #1d2b41;             /* navy chrome */
-		--surface: #283648;        /* search input, chips */
-		--surface-2: #34425a;      /* hover */
-		--hairline: rgba(255, 255, 255, 0.08);
-		--hairline-strong: rgba(255, 255, 255, 0.18);
-		--ink: #eef0f4;            /* primary text on chrome */
-		--pebble: #98a0ad;         /* secondary */
-		--fog: #6b7480;            /* tertiary */
-		--accent: #eef0f4;
-		--accent-soft: rgba(238, 240, 244, 0.14);
+		--bg: #e6e9ee;             /* slate gray chrome */
+		--surface: #ffffff;        /* search input, chips, dropdown */
+		--surface-2: #d8dde5;      /* hover */
+		--hairline: rgba(15, 23, 42, 0.10);
+		--hairline-strong: rgba(15, 23, 42, 0.20);
+		--ink: #131720;            /* primary text */
+		--pebble: #4d5666;         /* secondary */
+		--fog: #828b9a;            /* tertiary */
+		--accent: #131720;
+		--accent-soft: rgba(19, 23, 32, 0.10);
 
 		--font-ui: 'Inter Tight', system-ui, sans-serif;
 		--font-mono: 'JetBrains Mono', ui-monospace, monospace;
@@ -527,7 +527,7 @@
 	.topbar {
 		padding: 10px 16px;
 		border-bottom: 1px solid var(--hairline);
-		background: rgba(29, 43, 65, 0.92);
+		background: rgba(230, 233, 238, 0.92);
 		backdrop-filter: saturate(140%) blur(10px);
 		-webkit-backdrop-filter: saturate(140%) blur(10px);
 		z-index: 1000;
@@ -738,7 +738,7 @@
 			var(--ink) var(--pie-p),
 			var(--hairline-strong) 0
 		);
-		box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06);
+		box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.06);
 		animation: pie-fill 15s linear infinite;
 		transition: transform 200ms ease;
 	}
@@ -750,9 +750,9 @@
 		animation: pie-fill 15s linear infinite, pie-flash 480ms ease;
 	}
 	@keyframes pie-flash {
-		0%   { transform: scale(1);    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06), 0 0 0 0 rgba(238, 240, 244, 0.45); }
-		35%  { transform: scale(1.35); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06), 0 0 0 7px rgba(238, 240, 244, 0); }
-		100% { transform: scale(1);    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06), 0 0 0 0 rgba(238, 240, 244, 0); }
+		0%   { transform: scale(1);    box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.06), 0 0 0 0 rgba(19, 23, 32, 0.45); }
+		35%  { transform: scale(1.35); box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.06), 0 0 0 7px rgba(19, 23, 32, 0); }
+		100% { transform: scale(1);    box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.06), 0 0 0 0 rgba(19, 23, 32, 0); }
 	}
 	@media (prefers-reduced-motion: reduce) {
 		.pie { animation: none; }
