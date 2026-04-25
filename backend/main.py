@@ -5,7 +5,7 @@ from pathlib import Path
 from fastapi import FastAPI, HTTPException
 from fastapi.staticfiles import StaticFiles
 
-import mika
+from . import mika
 
 app = FastAPI(title="Marathon API")
 
