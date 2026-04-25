@@ -732,7 +732,6 @@
 		height: 18px;
 		border-radius: 50%;
 		background: conic-gradient(
-			from -90deg,
 			var(--ink) var(--pie-p),
 			var(--hairline-strong) 0
 		);
