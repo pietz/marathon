@@ -4,16 +4,27 @@ import math
 
 import httpx
 
-URL = "https://hamburg.r.mikatiming.de/2026/index.php"
+BASE = "https://hamburg.r.mikatiming.de/2026"
+URL = f"{BASE}/index.php"
 EVENT = "HML_HCHSK2IQ885"
 EVENT_MAIN_GROUP = "custom.meeting.marathon"
 
+# Used to (a) seed the favorites cookie when fetching just the route and
+# (b) keep /api/live behavior unchanged.
 RUNNERS = [
     {"name": "Tobi", "bib": "13538", "id": "HCHSK2IQ3A6CDF", "color": "#f1c40f"},
     {"name": "Kevin", "bib": "13533", "id": "HCHSK2IQ3A63EE", "color": "#3498db"},
     {"name": "Jonas", "bib": "13532", "id": "HCHSK2IQ3A95A9", "color": "#e74c3c"},
     {"name": "Alex", "bib": "13536", "id": "HCHSK2IQ3A6380", "color": "#2ecc71"},
 ]
+
+_HEADERS = {
+    "Referer": f"{BASE}/?pid=tracking",
+    "User-Agent": "Mozilla/5.0",
+}
+
+
+# ---------- raw mika calls ----------
 
 
 def fetch_tracking(runner_ids: list[str]) -> dict:
@@ -26,14 +37,30 @@ def fetch_tracking(runner_ids: list[str]) -> dict:
         "options[option_bar][event_main_group]": EVENT_MAIN_GROUP,
         "options[option_bar][event]": EVENT,
     }
-    headers = {
-        "Cookie": f"results_favorites={cookie}",
-        "Referer": "https://hamburg.r.mikatiming.de/2026/?pid=tracking",
-        "User-Agent": "Mozilla/5.0",
-    }
+    headers = {**_HEADERS, "Cookie": f"results_favorites={cookie}"}
     r = httpx.post(URL, params=params, data=data, headers=headers, timeout=30.0)
     r.raise_for_status()
     return r.json()
+
+
+def fetch_search(query: str) -> list[dict]:
+    data = {
+        "content": "ajax2",
+        "func": "getSearchResult",
+        "options[string]": query,
+        "options[pid]": "quicksearch",
+        "options[option_bar][event_main_group]": EVENT_MAIN_GROUP,
+        "options[option_bar][event]": EVENT,
+        "options[event]": "",
+        "onpage": "tracking",
+    }
+    r = httpx.post(URL, data=data, headers=_HEADERS, timeout=20.0)
+    r.raise_for_status()
+    payload = r.json()
+    return payload if isinstance(payload, list) else []
+
+
+# ---------- polyline + km projection ----------
 
 
 def decode_polyline(s: str, precision: int = 5) -> list[tuple[float, float]]:
@@ -89,7 +116,6 @@ def coordinate_at_km(
         return route[0]
     if km >= cum[-1]:
         return route[-1]
-    # Binary search would be nicer but linear is fine for 246 points.
     for i in range(1, len(cum)):
         if cum[i] >= km:
             seg = cum[i] - cum[i - 1]
@@ -102,6 +128,9 @@ def coordinate_at_km(
     return route[-1]
 
 
+# ---------- response parsing ----------
+
+
 _STATE_TO_STATUS = {
     "not_started": "not_started",
     "started": "running",
@@ -110,16 +139,54 @@ _STATE_TO_STATUS = {
 }
 
 
-def _normalize_runner(
+def _strip_titles(s: str) -> str:
+    """Drop leading academic/honorific tokens like 'Dr.', 'Prof.', 'Dipl.-Ing.'."""
+    parts = s.strip().split()
+    while len(parts) > 1 and parts[0].endswith("."):
+        parts = parts[1:]
+    return " ".join(parts)
+
+
+def _split_full_name(full: str | None) -> tuple[str, str]:
+    """('Dr. Jonas Fleckner') -> ('Jonas', 'Fleckner'). First non-title word is given name."""
+    if not full:
+        return "", ""
+    cleaned = _strip_titles(full)
+    parts = cleaned.split(" ", 1)
+    return (parts[0], parts[1] if len(parts) > 1 else "")
+
+
+def parse_route(payload: dict) -> list[tuple[float, float]]:
+    containers = payload.get("containers", [])
+    mp = next((c for c in containers if c.get("type") == "map"), None)
+    if not mp:
+        return []
+    tracks = mp.get("data", {}).get("tracks", {})
+    track = tracks.get("m") or next(iter(tracks.values()), None)
+    if not track or not track.get("points_encoded"):
+        return []
+    return decode_polyline(track["points_encoded"])
+
+
+def parse_runner_rows(payload: dict) -> list[dict]:
+    containers = payload.get("containers", [])
+    fav = next((c for c in containers if c.get("type") == "favorites"), None)
+    if not fav:
+        return []
+    return fav.get("data", {}).get("rows", []) or []
+
+
+def project_runner(
     row: dict,
-    config: dict,
     route: list[tuple[float, float]],
     cum: list[float],
 ) -> dict:
     pos = row.get("position_data") or {}
     state = pos.get("state") or "unknown"
-    km = pos.get("pos_km") or 0
-    coord = coordinate_at_km(route, cum, float(km)) if route else None
+    km = float(pos.get("pos_km") or 0)
+    coord = coordinate_at_km(route, cum, km) if route else None
+    full = row.get("__fullname")
+    first, last = _split_full_name(full)
     splits = [
         {
             "name": s.get("name"),
@@ -132,12 +199,14 @@ def _normalize_runner(
     ]
     return {
         "id": row.get("id"),
-        "name": config["name"],
-        "bib": row.get("start_no") or config["bib"],
-        "color": config["color"],
-        "fullName": row.get("__fullname"),
+        "bib": row.get("start_no"),
+        "fullName": full,
+        "firstName": first,
+        "lastName": last or row.get("name"),
+        "club": row.get("club"),
+        "sex": row.get("sex"),
         "status": _STATE_TO_STATUS.get(state, state),
-        "km": float(km) if km is not None else 0.0,
+        "km": km,
         "speedKmh": pos.get("speed_kmh"),
         "source": pos.get("source"),
         "lastChange": pos.get("daytime_last_change"),
@@ -147,39 +216,79 @@ def _normalize_runner(
     }
 
 
-def build_live_payload(payload: dict) -> dict:
-    containers = payload.get("containers", [])
-    mp = next((c for c in containers if c.get("type") == "map"), None)
-    fav = next((c for c in containers if c.get("type") == "favorites"), None)
+# ---------- public API used by FastAPI endpoints ----------
 
-    route: list[tuple[float, float]] = []
-    if mp:
-        tracks = mp.get("data", {}).get("tracks", {})
-        track = tracks.get("m") or next(iter(tracks.values()), None)
-        if track and track.get("points_encoded"):
-            route = decode_polyline(track["points_encoded"])
+
+def get_route() -> list[list[float]]:
+    """Fetch only the marathon polyline. Uses our four anchor IDs as the
+    favorites cookie since mika requires at least one to populate the map."""
+    raw = fetch_tracking([r["id"] for r in RUNNERS])
+    return [list(p) for p in parse_route(raw)]
+
+
+def get_runners(ids: list[str]) -> dict:
+    raw = fetch_tracking(ids)
+    route = parse_route(raw)
     cum = cumulative_km(route) if route else []
+    rows = parse_runner_rows(raw)
+    by_id = {row.get("id"): row for row in rows}
+    runners = [project_runner(by_id[i], route, cum) for i in ids if i in by_id]
+    return {"lastUpdate": raw.get("lastUpdateTs"), "runners": runners}
 
+
+def search(query: str) -> list[dict]:
+    raw = fetch_search(query)
+    out = []
+    for item in raw:
+        full = item.get("value") or ""
+        last, _, first = full.partition(", ")
+        first = _strip_titles(first)
+        out.append({
+            "id": item.get("id"),
+            "bib": item.get("start_no"),
+            "fullName": f"{first} {last}".strip() if first else full,
+            "firstName": first or "",
+            "lastName": last or "",
+            "club": item.get("club"),
+            "sex": (item.get("class") or "").upper() or None,
+        })
+    return out
+
+
+# ---------- legacy /api/live (unchanged behavior) ----------
+
+
+def _normalize_runner(
+    row: dict,
+    config: dict,
+    route: list[tuple[float, float]],
+    cum: list[float],
+) -> dict:
+    base = project_runner(row, route, cum)
+    return {
+        **base,
+        "name": config["name"],
+        "color": config["color"],
+        "bib": base["bib"] or config["bib"],
+    }
+
+
+def get_live() -> dict:
+    raw = fetch_tracking([r["id"] for r in RUNNERS])
+    route = parse_route(raw)
+    cum = cumulative_km(route) if route else []
+    rows = parse_runner_rows(raw)
     by_id = {r["id"]: r for r in RUNNERS}
-    rows = (fav.get("data", {}).get("rows", []) if fav else []) or []
     runners = []
     for row in rows:
         cfg = by_id.get(row.get("id"))
         if not cfg:
             continue
         runners.append(_normalize_runner(row, cfg, route, cum))
-
-    # Preserve our display order (Tobi, Kevin, Jonas, Alex), even if mika reorders.
     order = {r["id"]: i for i, r in enumerate(RUNNERS)}
     runners.sort(key=lambda r: order.get(r["id"], 999))
-
     return {
-        "lastUpdate": payload.get("lastUpdateTs"),
+        "lastUpdate": raw.get("lastUpdateTs"),
         "route": [list(p) for p in route],
         "runners": runners,
     }
-
-
-def get_live() -> dict:
-    raw = fetch_tracking([r["id"] for r in RUNNERS])
-    return build_live_payload(raw)
