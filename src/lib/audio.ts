@@ -41,38 +41,31 @@ class AudioManager {
 		});
 	}
 
-	/** Decode preloaded data — must be called from a user gesture */
-	async init() {
+	/** Create AudioContext on user gesture, decode buffers in background */
+	init() {
 		if (this.initialized) return;
+		this.initialized = true;
 
 		this.context = new AudioContext();
 		const ctx = this.context;
 
 		if (ctx.state === 'suspended') {
-			await ctx.resume();
+			ctx.resume();
 		}
 
-		try {
-			// Decode pre-fetched buffers (fast — no network wait)
-			if (this.rawHover) {
-				this.hoverBuffer = await ctx.decodeAudioData(this.rawHover);
-				this.rawHover = null;
+		// Decode pre-fetched buffers in background — each becomes playable as it resolves
+		if (this.rawHover) {
+			const raw = this.rawHover;
+			this.rawHover = null;
+			ctx.decodeAudioData(raw).then((buf) => { this.hoverBuffer = buf; }).catch(() => {});
+		}
+
+		this.rawSelect.forEach((raw, i) => {
+			if (raw) {
+				this.rawSelect[i] = null;
+				ctx.decodeAudioData(raw).then((buf) => { this.selectBuffers[i] = buf; }).catch(() => {});
 			}
-
-			await Promise.all(
-				this.rawSelect.map(async (raw, i) => {
-					if (raw) {
-						this.selectBuffers[i] = await ctx.decodeAudioData(raw);
-						this.rawSelect[i] = null;
-					}
-				})
-			);
-
-			this.initialized = true;
-		} catch (e) {
-			console.warn('Audio init failed, will retry on next interaction', e);
-			this.context = null;
-		}
+		});
 	}
 
 	private playBuffer(buffer: AudioBuffer | null) {

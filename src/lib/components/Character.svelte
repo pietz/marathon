@@ -63,9 +63,9 @@
 		}
 	}
 
-	async function handleMouseEnter() {
+	function handleMouseEnter() {
 		isHovered = true;
-		await ensureAudio();
+		ensureAudio();
 		audio.playCharacterSound(index);
 		startSpin();
 	}
@@ -74,8 +74,8 @@
 		isHovered = false;
 	}
 
-	async function handleClick() {
-		await ensureAudio();
+	function handleClick() {
+		ensureAudio();
 		audio.playSelectSound(index);
 		onSelect(character);
 	}

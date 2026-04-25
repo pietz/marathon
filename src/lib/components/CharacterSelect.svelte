@@ -53,7 +53,7 @@
 		<div class="map-container">
 			<div class="map-tilt">
 				<img
-					src="{base}/images/hamburg-map.png"
+					src="{base}/images/hamburg-map.webp"
 					alt="Hamburg map centered on the Alster"
 					class="map-image"
 				/>

@@ -45,7 +45,7 @@ export const characters: Character[] = [
 			'Carbo-Loading heißt bei ihm: Weizenbier.',
 			'Vereinsvorsitzender der Zauberflöten. Mitglieder: 3. Vereinszweck: fragwürdig.'
 		],
-		imageFront: `${base}/images/tobi.png`,
+		imageFront: `${base}/images/tobi.webp`,
 		imageBack: null
 	},
 	{
@@ -69,7 +69,7 @@ export const characters: Character[] = [
 			'Besitzt eine Bohrmaschine. Originalverpackt. Seit 2019.',
 			'Lässt andere für sich arbeiten und nennt es Führungsqualität.'
 		],
-		imageFront: `${base}/images/kevin.png`,
+		imageFront: `${base}/images/kevin.webp`,
 		imageBack: null
 	},
 	{
@@ -93,7 +93,7 @@ export const characters: Character[] = [
 			'Entschuldigt sich beim Überholen.',
 			'Kann nicht Nein sagen. Deshalb läuft er jetzt auch einen Marathon.'
 		],
-		imageFront: `${base}/images/jonas.png`,
+		imageFront: `${base}/images/jonas.webp`,
 		imageBack: null
 	},
 	{
@@ -117,7 +117,7 @@ export const characters: Character[] = [
 			'Puls steigt gelegentlich auch ohne körperliche Anstrengung.',
 			'Teilt alles. Außer sein Essen. Da hört die Freundschaft auf.'
 		],
-		imageFront: `${base}/images/alex.png`,
+		imageFront: `${base}/images/alex.webp`,
 		imageBack: null
 	}
 ];
