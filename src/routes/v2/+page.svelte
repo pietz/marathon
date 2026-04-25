@@ -60,7 +60,8 @@
 	let selected = $state<RunnerView[]>([]);
 	let activeId = $state<string | null>(null);
 	let lastUpdate = $state<string | null>(null);
-	let refreshing = $state(false);
+	let flashing = $state(false);
+	let pieEl: HTMLElement | null = $state(null);
 
 	let mapEl: HTMLDivElement;
 	let map: any;
@@ -68,7 +69,6 @@
 	let routeLayer: any;
 	let routeGlowLayer: any;
 	const markerLayer = new Map<string, any>();
-	let pollHandle: ReturnType<typeof setInterval> | null = null;
 	let searchTimer: ReturnType<typeof setTimeout> | null = null;
 
 	// ---- URL sync ----------------------------------------------------------
@@ -122,8 +122,8 @@
 
 	async function refreshRunners() {
 		if (!selected.length) return;
-		refreshing = true;
-		const startedAt = Date.now();
+		flashing = true;
+		setTimeout(() => { flashing = false; }, 480);
 		try {
 			const { lastUpdate: ts, runners } = await fetchRunners(
 				selected.map((r) => r.bib).filter((b): b is string => !!b)
@@ -137,12 +137,6 @@
 			renderMarkers();
 		} catch (e) {
 			console.error('runners fetch failed', e);
-		} finally {
-			// Keep the spinner visible at least 400ms so cache-hit polls still
-			// give the user a flicker of feedback.
-			const elapsed = Date.now() - startedAt;
-			const wait = Math.max(0, 400 - elapsed);
-			setTimeout(() => { refreshing = false; }, wait);
 		}
 	}
 
@@ -343,12 +337,17 @@
 			}));
 			await refreshRunners();
 		}
+	});
 
-		pollHandle = setInterval(refreshRunners, POLL_MS);
+	// Each full pie cycle completes the polling interval — fetch + flash on tick.
+	$effect(() => {
+		if (!pieEl) return;
+		const onTick = () => refreshRunners();
+		pieEl.addEventListener('animationiteration', onTick);
+		return () => pieEl.removeEventListener('animationiteration', onTick);
 	});
 
 	onDestroy(() => {
-		if (pollHandle) clearInterval(pollHandle);
 		if (searchTimer) clearTimeout(searchTimer);
 		if (map) map.remove();
 	});
@@ -383,7 +382,7 @@
 
 <div class="page">
 	<header class="topbar">
-		<div class="search-shell" role="combobox" aria-haspopup="listbox" aria-expanded={dropdownOpen}>
+		<div class="search-shell" role="combobox" aria-haspopup="listbox" aria-expanded={dropdownOpen} aria-controls="search-listbox">
 			<svg class="search-icon" viewBox="0 0 20 20" aria-hidden="true">
 				<circle cx="9" cy="9" r="6" fill="none" stroke="currentColor" stroke-width="1.6" />
 				<line x1="13.5" y1="13.5" x2="17" y2="17" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" />
@@ -405,7 +404,7 @@
 			/>
 
 			{#if dropdownOpen}
-				<div class="dropdown" role="listbox">
+				<div class="dropdown" role="listbox" id="search-listbox">
 					{#if searching}
 						<div class="hint">Sucht…</div>
 					{:else if !results.length && query.trim().length >= 2}
@@ -470,14 +469,13 @@
 			</div>
 			<div
 				class="refresh"
-				class:is-refreshing={refreshing}
+				class:is-flashing={flashing}
 				title={lastUpdate
 					? `Aktualisiert ${new Date(lastUpdate).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}`
 					: 'Aktualisiert gerade…'}
 				aria-live="polite"
-				aria-label={refreshing ? 'Aktualisiert…' : 'Aktualisiert'}
 			>
-				<span class="spinner" aria-hidden="true"></span>
+				<span class="pie" bind:this={pieEl} aria-hidden="true"></span>
 			</div>
 		{:else}
 			<p class="title">
@@ -714,7 +712,12 @@
 	}
 	.chip-track::-webkit-scrollbar { display: none; }
 
-	/* ---- refresh spinner ---- */
+	/* ---- refresh pie ---- */
+	@property --pie-p {
+		syntax: '<percentage>';
+		inherits: false;
+		initial-value: 0%;
+	}
 	.refresh {
 		flex-shrink: 0;
 		display: grid;
@@ -722,23 +725,36 @@
 		width: 38px;
 		height: 100%;
 		padding-right: 14px;
-		color: var(--pebble);
 	}
-	.spinner {
-		width: 16px;
-		height: 16px;
+	.pie {
+		--pie-p: 0%;
+		width: 18px;
+		height: 18px;
 		border-radius: 50%;
-		border: 2px solid var(--hairline-strong);
-		border-top-color: var(--ink);
-		opacity: 0.35;
-		transition: opacity 240ms ease;
+		background: conic-gradient(
+			from -90deg,
+			var(--ink) var(--pie-p),
+			var(--hairline-strong) 0
+		);
+		box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.06);
+		animation: pie-fill 15s linear infinite;
+		transition: transform 200ms ease;
 	}
-	.refresh.is-refreshing .spinner {
-		opacity: 1;
-		animation: spin 0.8s linear infinite;
+	@keyframes pie-fill {
+		from { --pie-p: 0%; }
+		to   { --pie-p: 100%; }
 	}
-	@keyframes spin {
-		to { transform: rotate(360deg); }
+	.refresh.is-flashing .pie {
+		animation: pie-fill 15s linear infinite, pie-flash 480ms ease;
+	}
+	@keyframes pie-flash {
+		0%   { transform: scale(1);    box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.06), 0 0 0 0 rgba(26, 29, 35, 0.4); }
+		35%  { transform: scale(1.35); box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.06), 0 0 0 6px rgba(26, 29, 35, 0); }
+		100% { transform: scale(1);    box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.06), 0 0 0 0 rgba(26, 29, 35, 0); }
+	}
+	@media (prefers-reduced-motion: reduce) {
+		.pie { animation: none; }
+		.refresh.is-flashing .pie { animation: none; }
 	}
 
 	.chip {
