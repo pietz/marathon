@@ -60,6 +60,7 @@
 	let selected = $state<RunnerView[]>([]);
 	let activeId = $state<string | null>(null);
 	let lastUpdate = $state<string | null>(null);
+	let refreshing = $state(false);
 
 	let mapEl: HTMLDivElement;
 	let map: any;
@@ -121,6 +122,8 @@
 
 	async function refreshRunners() {
 		if (!selected.length) return;
+		refreshing = true;
+		const startedAt = Date.now();
 		try {
 			const { lastUpdate: ts, runners } = await fetchRunners(
 				selected.map((r) => r.bib).filter((b): b is string => !!b)
@@ -134,6 +137,12 @@
 			renderMarkers();
 		} catch (e) {
 			console.error('runners fetch failed', e);
+		} finally {
+			// Keep the spinner visible at least 400ms so cache-hit polls still
+			// give the user a flicker of feedback.
+			const elapsed = Date.now() - startedAt;
+			const wait = Math.max(0, 400 - elapsed);
+			setTimeout(() => { refreshing = false; }, wait);
 		}
 	}
 
@@ -426,7 +435,7 @@
 		</div>
 	</header>
 
-	<section class="subbar">
+	<section class="subbar" class:has-chips={selected.length}>
 		{#if selected.length}
 			<div class="chip-track">
 				{#each selected as r (r.bib)}
@@ -459,6 +468,17 @@
 					</div>
 				{/each}
 			</div>
+			<div
+				class="refresh"
+				class:is-refreshing={refreshing}
+				title={lastUpdate
+					? `Aktualisiert ${new Date(lastUpdate).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}`
+					: 'Aktualisiert gerade…'}
+				aria-live="polite"
+				aria-label={refreshing ? 'Aktualisiert…' : 'Aktualisiert'}
+			>
+				<span class="spinner" aria-hidden="true"></span>
+			</div>
 		{:else}
 			<p class="title">
 				Verfolge Läufer:innen beim
@@ -469,13 +489,6 @@
 
 	<main class="map-wrap">
 		<div bind:this={mapEl} class="map"></div>
-
-		{#if lastUpdate && selected.length}
-			<div class="updated">
-				<span class="pulse"></span>
-				Aktualisiert {new Date(lastUpdate).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}
-			</div>
-		{/if}
 	</main>
 </div>
 
@@ -657,39 +670,6 @@
 		background: var(--surface-2) !important;
 	}
 
-	/* ---- last-update pill ---- */
-	.updated {
-		position: absolute;
-		top: 12px;
-		left: 50%;
-		transform: translateX(-50%);
-		display: inline-flex;
-		align-items: center;
-		gap: 6px;
-		padding: 5px 10px 5px 8px;
-		background: rgba(255, 255, 255, 0.9);
-		backdrop-filter: blur(8px);
-		border: 1px solid var(--hairline);
-		border-radius: 999px;
-		font: 500 11px/1 var(--font-ui);
-		color: var(--pebble);
-		letter-spacing: 0.02em;
-		pointer-events: none;
-		box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
-	}
-	.updated .pulse {
-		width: 6px;
-		height: 6px;
-		border-radius: 50%;
-		background: #2c8a2c;
-		box-shadow: 0 0 0 0 rgba(44, 138, 44, 0.4);
-		animation: pulse-dot 2.4s ease-out infinite;
-	}
-	@keyframes pulse-dot {
-		0%   { box-shadow: 0 0 0 0 rgba(44, 138, 44, 0.4); }
-		100% { box-shadow: 0 0 0 8px rgba(44, 138, 44, 0); }
-	}
-
 	/* ---- subbar (title or chips) ---- */
 	.subbar {
 		flex-shrink: 0;
@@ -698,6 +678,9 @@
 		align-items: center;
 		border-bottom: 1px solid var(--hairline);
 		background: var(--bg);
+	}
+	.subbar.has-chips {
+		gap: 0;
 	}
 	.title {
 		margin: 0;
@@ -722,11 +705,41 @@
 		overflow-x: auto;
 		overscroll-behavior-x: contain;
 		scroll-snap-type: x proximity;
-		padding: 12px 16px;
+		padding: 12px 8px 12px 16px;
 		scrollbar-width: none;
-		width: 100%;
+		flex: 1 1 auto;
+		min-width: 0;
+		mask-image: linear-gradient(to right, #000 calc(100% - 16px), transparent);
+		-webkit-mask-image: linear-gradient(to right, #000 calc(100% - 16px), transparent);
 	}
 	.chip-track::-webkit-scrollbar { display: none; }
+
+	/* ---- refresh spinner ---- */
+	.refresh {
+		flex-shrink: 0;
+		display: grid;
+		place-items: center;
+		width: 38px;
+		height: 100%;
+		padding-right: 14px;
+		color: var(--pebble);
+	}
+	.spinner {
+		width: 16px;
+		height: 16px;
+		border-radius: 50%;
+		border: 2px solid var(--hairline-strong);
+		border-top-color: var(--ink);
+		opacity: 0.35;
+		transition: opacity 240ms ease;
+	}
+	.refresh.is-refreshing .spinner {
+		opacity: 1;
+		animation: spin 0.8s linear infinite;
+	}
+	@keyframes spin {
+		to { transform: rotate(360deg); }
+	}
 
 	.chip {
 		display: inline-flex;

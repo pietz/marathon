@@ -1,13 +1,59 @@
+import logging
 import os
 import time
+import uuid
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.staticfiles import StaticFiles
+from starlette.middleware.base import BaseHTTPMiddleware
 
 from . import mika
+from .logging_config import request_id_var, setup_logging
+
+setup_logging()
+logger = logging.getLogger("marathon")
 
 app = FastAPI(title="Marathon API")
+
+
+class LoggingMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        rid = request.headers.get("x-request-id") or uuid.uuid4().hex[:12]
+        token = request_id_var.set(rid)
+        start = time.perf_counter()
+        try:
+            response = await call_next(request)
+        except Exception:
+            logger.exception(
+                "unhandled error",
+                extra={"method": request.method, "path": request.url.path},
+            )
+            request_id_var.reset(token)
+            raise
+        ms = (time.perf_counter() - start) * 1000
+        # Skip the noisy SvelteKit static-asset chatter from access logs.
+        if not request.url.path.startswith("/_app/"):
+            extra = {
+                "method": request.method,
+                "path": request.url.path,
+                "status": response.status_code,
+                "duration_ms": round(ms),
+            }
+            log = (
+                logger.error
+                if response.status_code >= 500
+                else logger.warning
+                if response.status_code >= 400
+                else logger.info
+            )
+            log(f"{request.method} {request.url.path} {response.status_code}", extra=extra)
+        request_id_var.reset(token)
+        response.headers["x-request-id"] = rid
+        return response
+
+
+app.add_middleware(LoggingMiddleware)
 
 STATIC_DIR = Path(__file__).resolve().parent.parent / "build"
 
