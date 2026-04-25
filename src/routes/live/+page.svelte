@@ -395,7 +395,7 @@
 				type="text"
 				class="search"
 				placeholder="Nachname oder Startnummer"
-				aria-label="Läufer:innen suchen"
+				aria-label="Läufer suchen"
 				aria-autocomplete="list"
 				autocomplete="off"
 				autocapitalize="off"
@@ -479,7 +479,7 @@
 			</div>
 		{:else}
 			<p class="title">
-				Verfolge Läufer:innen beim
+				Verfolge Läufer beim
 				<span class="title-strong">Hamburg Marathon 2026</span>
 			</p>
 		{/if}
