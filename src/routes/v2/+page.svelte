@@ -71,18 +71,18 @@
 	let searchTimer: ReturnType<typeof setTimeout> | null = null;
 
 	// ---- URL sync ----------------------------------------------------------
-	function readIdsFromURL(): string[] {
+	function readBibsFromURL(): string[] {
 		if (!browser) return [];
 		const p = new URLSearchParams(window.location.search);
-		const raw = p.get('ids') || '';
+		const raw = p.get('bibs') || '';
 		return raw.split(',').map((s) => s.trim()).filter(Boolean).slice(0, MAX_RUNNERS);
 	}
 
-	function writeIdsToURL(ids: string[]) {
+	function writeBibsToURL(bibs: string[]) {
 		if (!browser) return;
 		const url = new URL(window.location.href);
-		if (ids.length) url.searchParams.set('ids', ids.join(','));
-		else url.searchParams.delete('ids');
+		if (bibs.length) url.searchParams.set('bibs', bibs.join(','));
+		else url.searchParams.delete('bibs');
 		window.history.replaceState({}, '', url);
 	}
 
@@ -112,9 +112,9 @@
 		}
 	}
 
-	async function fetchRunners(ids: string[]): Promise<{ lastUpdate: string; runners: Runner[] }> {
-		if (!ids.length) return { lastUpdate: '', runners: [] };
-		const r = await fetch(`${base}/api/runners?ids=${ids.join(',')}`);
+	async function fetchRunners(bibs: string[]): Promise<{ lastUpdate: string; runners: Runner[] }> {
+		if (!bibs.length) return { lastUpdate: '', runners: [] };
+		const r = await fetch(`${base}/api/runners?bibs=${bibs.join(',')}`);
 		if (!r.ok) throw new Error(`runners ${r.status}`);
 		return r.json();
 	}
@@ -122,10 +122,12 @@
 	async function refreshRunners() {
 		if (!selected.length) return;
 		try {
-			const { lastUpdate: ts, runners } = await fetchRunners(selected.map((r) => r.id));
-			const byId = new Map(runners.map((r) => [r.id, r]));
+			const { lastUpdate: ts, runners } = await fetchRunners(
+				selected.map((r) => r.bib).filter((b): b is string => !!b)
+			);
+			const byBib = new Map(runners.map((r) => [r.bib, r]));
 			selected = selected.map((cur) => {
-				const fresh = byId.get(cur.id);
+				const fresh = cur.bib ? byBib.get(cur.bib) : undefined;
 				return fresh ? { ...cur, ...fresh } : cur;
 			});
 			lastUpdate = ts;
@@ -137,7 +139,8 @@
 
 	// ---- Selection actions -------------------------------------------------
 	async function addRunner(r: SearchResult) {
-		if (selected.some((x) => x.id === r.id)) {
+		if (!r.bib) return;
+		if (selected.some((x) => x.bib === r.bib)) {
 			closeDropdown();
 			return;
 		}
@@ -157,28 +160,28 @@
 			color: nextFreeColor()
 		};
 		selected = [...selected, view];
-		writeIdsToURL(selected.map((x) => x.id));
+		writeBibsToURL(selected.map((x) => x.bib!).filter(Boolean));
 		closeDropdown();
 		query = '';
 		results = [];
 		await refreshRunners();
-		focusOn(view.id, { center: true });
+		focusOn(r.bib, { center: true });
 	}
 
-	function removeRunner(id: string) {
-		selected = selected.filter((r) => r.id !== id);
-		writeIdsToURL(selected.map((x) => x.id));
-		if (activeId === id) activeId = null;
-		const m = markerLayer.get(id);
+	function removeRunner(bib: string) {
+		selected = selected.filter((r) => r.bib !== bib);
+		writeBibsToURL(selected.map((x) => x.bib!).filter(Boolean));
+		if (activeId === bib) activeId = null;
+		const m = markerLayer.get(bib);
 		if (m) {
 			map.removeLayer(m);
-			markerLayer.delete(id);
+			markerLayer.delete(bib);
 		}
 	}
 
-	function focusOn(id: string, opts: { center?: boolean } = {}) {
-		activeId = id;
-		const r = selected.find((s) => s.id === id);
+	function focusOn(bib: string, opts: { center?: boolean } = {}) {
+		activeId = bib;
+		const r = selected.find((s) => s.bib === bib);
 		if (r?.coordinate && map && opts.center) {
 			map.flyTo(r.coordinate, Math.max(map.getZoom(), 14), { duration: 0.6 });
 		}
@@ -261,22 +264,22 @@
 
 	function renderMarkers() {
 		if (!map || !L) return;
-		const ids = new Set(selected.map((r) => r.id));
-		for (const [id, m] of markerLayer.entries()) {
-			if (!ids.has(id)) {
+		const bibs = new Set(selected.map((r) => r.bib).filter(Boolean) as string[]);
+		for (const [bib, m] of markerLayer.entries()) {
+			if (!bibs.has(bib)) {
 				map.removeLayer(m);
-				markerLayer.delete(id);
+				markerLayer.delete(bib);
 			}
 		}
 		for (const r of selected) {
-			if (!r.coordinate) continue;
-			const isActive = r.id === activeId;
+			if (!r.coordinate || !r.bib) continue;
+			const isActive = r.bib === activeId;
 			const html = `
 				<span class="ring" style="--c: ${r.color}"></span>
 				<span class="dot" style="background: ${r.color}"></span>
 				<span class="lbl">${escapeHtml(r.firstName)}</span>
 			`;
-			const existing = markerLayer.get(r.id);
+			const existing = markerLayer.get(r.bib);
 			if (existing) {
 				existing.setLatLng(r.coordinate);
 				const el = existing.getElement();
@@ -288,7 +291,7 @@
 					iconSize: [0, 0]
 				});
 				const m = L.marker(r.coordinate, { icon, zIndexOffset: isActive ? 1000 : 0 }).addTo(map);
-				markerLayer.set(r.id, m);
+				markerLayer.set(r.bib, m);
 			}
 		}
 	}
@@ -313,11 +316,11 @@
 
 		await fetchRoute();
 
-		const urlIds = readIdsFromURL();
-		if (urlIds.length) {
-			selected = urlIds.map((id, i) => ({
-				id,
-				bib: null,
+		const urlBibs = readBibsFromURL();
+		if (urlBibs.length) {
+			selected = urlBibs.map((bib, i) => ({
+				id: '',
+				bib,
 				fullName: null,
 				firstName: '…',
 				lastName: '',
@@ -400,7 +403,7 @@
 						<div class="hint">Keine Treffer</div>
 					{:else}
 						{#each results as r, i (r.id)}
-							{@const taken = selected.some((s) => s.id === r.id)}
+							{@const taken = selected.some((s) => s.bib === r.bib)}
 							<button
 								type="button"
 								class="result"
@@ -426,16 +429,16 @@
 	<section class="subbar">
 		{#if selected.length}
 			<div class="chip-track">
-				{#each selected as r (r.id)}
+				{#each selected as r (r.bib)}
 					<div
 						class="chip"
-						class:is-active={activeId === r.id}
+						class:is-active={activeId === r.bib}
 						style="--c: {r.color}"
 					>
 						<button
 							type="button"
 							class="chip-body"
-							onclick={() => focusOn(r.id, { center: true })}
+							onclick={() => r.bib && focusOn(r.bib, { center: true })}
 							aria-label="Auf {r.firstName} zentrieren"
 						>
 							<span class="chip-dot"></span>
@@ -445,7 +448,7 @@
 						<button
 							type="button"
 							class="chip-x"
-							onclick={() => removeRunner(r.id)}
+							onclick={() => r.bib && removeRunner(r.bib)}
 							aria-label="{r.firstName} entfernen"
 						>
 							<svg viewBox="0 0 14 14" aria-hidden="true">

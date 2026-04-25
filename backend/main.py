@@ -82,14 +82,20 @@ def search(q: str = Query(min_length=2, max_length=64)):
 
 
 @app.get("/api/runners")
-def runners(ids: str = Query(min_length=1, max_length=512)):
-    id_list = [s.strip() for s in ids.split(",") if s.strip()]
-    if not id_list:
-        raise HTTPException(status_code=400, detail="no ids provided")
-    if len(id_list) > MAX_IDS:
-        raise HTTPException(status_code=400, detail=f"too many ids (max {MAX_IDS})")
-    # Preserve client-provided order in the response, but cache by sorted set.
-    key = tuple(sorted(set(id_list)))
+def runners(bibs: str = Query(min_length=1, max_length=256)):
+    bib_list = [s.strip() for s in bibs.split(",") if s.strip()]
+    if not bib_list:
+        raise HTTPException(status_code=400, detail="no bibs provided")
+    if len(bib_list) > MAX_IDS:
+        raise HTTPException(status_code=400, detail=f"too many bibs (max {MAX_IDS})")
+
+    # Resolve bibs -> internal mika IDs (cached forever per process).
+    bib_to_id = mika.resolve_bibs(bib_list)
+    if not bib_to_id:
+        return {"lastUpdate": None, "runners": []}
+
+    ids = list(bib_to_id.values())
+    key = tuple(sorted(set(ids)))
     now = time.monotonic()
     cached = _runners_cache.get(key)
     if cached and now - cached[0] < RUNNERS_CACHE_TTL:
@@ -107,10 +113,12 @@ def runners(ids: str = Query(min_length=1, max_length=512)):
             oldest = sorted(_runners_cache.items(), key=lambda kv: kv[1][0])[:100]
             for k, _ in oldest:
                 _runners_cache.pop(k, None)
-    by_id = {r["id"]: r for r in data["runners"]}
+
+    by_bib = {r["bib"]: r for r in data["runners"] if r.get("bib")}
+    # Preserve client-provided bib order; drop unresolved bibs silently.
     return {
         "lastUpdate": data["lastUpdate"],
-        "runners": [by_id[i] for i in id_list if i in by_id],
+        "runners": [by_bib[b] for b in bib_list if b in by_bib],
     }
 
 

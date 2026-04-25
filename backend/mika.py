@@ -1,5 +1,6 @@
 """Mika Timing client for Hamburg Marathon 2026 live tracking."""
 
+import concurrent.futures
 import math
 
 import httpx
@@ -234,6 +235,37 @@ def get_runners(ids: list[str]) -> dict:
     by_id = {row.get("id"): row for row in rows}
     runners = [project_runner(by_id[i], route, cum) for i in ids if i in by_id]
     return {"lastUpdate": raw.get("lastUpdateTs"), "runners": runners}
+
+
+# Bib → internal mika ID. mika IDs are stable for the event so we cache
+# forever (in-memory; resets on process restart).
+_bib_id_cache: dict[str, str] = {r["bib"]: r["id"] for r in RUNNERS}
+
+
+def _resolve_one_bib(bib: str) -> str | None:
+    raw = fetch_search(bib)
+    for item in raw:
+        if str(item.get("start_no")) == str(bib):
+            return item.get("id")
+    return None
+
+
+def resolve_bibs(bibs: list[str]) -> dict[str, str]:
+    """Return {bib: mika_id} for the bibs we could resolve. Bibs we
+    can't find (typo, wrong event) are silently omitted."""
+    unresolved = [b for b in bibs if b not in _bib_id_cache]
+    if unresolved:
+        with concurrent.futures.ThreadPoolExecutor(max_workers=min(8, len(unresolved))) as ex:
+            future_to_bib = {ex.submit(_resolve_one_bib, b): b for b in unresolved}
+            for fut in concurrent.futures.as_completed(future_to_bib):
+                bib = future_to_bib[fut]
+                try:
+                    rid = fut.result()
+                    if rid:
+                        _bib_id_cache[bib] = rid
+                except Exception:
+                    pass
+    return {b: _bib_id_cache[b] for b in bibs if b in _bib_id_cache}
 
 
 def search(query: str) -> list[dict]:
