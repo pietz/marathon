@@ -370,7 +370,7 @@
 
 <svelte:head>
 	<title>Marathon Tracking · Hamburg 2026</title>
-	<meta name="theme-color" content="#0f1825" />
+	<meta name="theme-color" content="#1d2b41" />
 	<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 	<link rel="preconnect" href="https://fonts.googleapis.com" />
 	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -494,7 +494,7 @@
 	:global(html, body) {
 		margin: 0;
 		padding: 0;
-		background: #0f1825;
+		background: #1d2b41;
 		color: #eef0f4;
 		font-family: 'Inter Tight', system-ui, -apple-system, sans-serif;
 		-webkit-font-smoothing: antialiased;
@@ -502,9 +502,9 @@
 	}
 
 	.page {
-		--bg: #0f1825;             /* deep navy chrome */
-		--surface: #1a2536;        /* search input, chips */
-		--surface-2: #233044;      /* hover */
+		--bg: #1d2b41;             /* navy chrome */
+		--surface: #283648;        /* search input, chips */
+		--surface-2: #34425a;      /* hover */
 		--hairline: rgba(255, 255, 255, 0.08);
 		--hairline-strong: rgba(255, 255, 255, 0.18);
 		--ink: #eef0f4;            /* primary text on chrome */
@@ -527,7 +527,7 @@
 	.topbar {
 		padding: 10px 16px;
 		border-bottom: 1px solid var(--hairline);
-		background: rgba(15, 24, 37, 0.92);
+		background: rgba(29, 43, 65, 0.92);
 		backdrop-filter: saturate(140%) blur(10px);
 		-webkit-backdrop-filter: saturate(140%) blur(10px);
 		z-index: 1000;
