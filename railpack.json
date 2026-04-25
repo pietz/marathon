@@ -1,0 +1,15 @@
+{
+  "$schema": "https://schema.railpack.com",
+  "provider": "python",
+  "packages": { "node": "20" },
+  "steps": {
+    "build-frontend": {
+      "inputs": [{ "step": "packages:mise" }, { "local": true }],
+      "commands": ["npm ci", "npm run build"]
+    }
+  },
+  "deploy": {
+    "inputs": [{ "step": "install" }, { "step": "build-frontend" }],
+    "startCommand": "uv run uvicorn backend.main:app --host 0.0.0.0 --port $PORT"
+  }
+}
