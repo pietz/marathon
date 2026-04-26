@@ -1,6 +1,7 @@
 """Mika Timing client for Hamburg Marathon 2026 live tracking."""
 
 import concurrent.futures
+from datetime import datetime, timezone
 import math
 
 import httpx
@@ -157,6 +158,32 @@ def _split_full_name(full: str | None) -> tuple[str, str]:
     return (parts[0], parts[1] if len(parts) > 1 else "")
 
 
+def _parse_datetime(value: str | None) -> datetime | None:
+    if not value:
+        return None
+    try:
+        return datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+
+
+def _project_position_km(pos: dict, state: str) -> float:
+    km = float(pos.get("pos_km") or 0)
+    if state != "started" or pos.get("source") != "estimated_chip":
+        return km
+
+    speed_kmh = pos.get("speed_kmh")
+    last_change = _parse_datetime(pos.get("datetime_last_change"))
+    valid_until = pos.get("valid_until_km")
+    if not speed_kmh or not last_change or valid_until is None:
+        return km
+
+    now = datetime.now(last_change.tzinfo or timezone.utc)
+    elapsed_hours = max(0.0, (now - last_change).total_seconds() / 3600)
+    projected = km + float(speed_kmh) * elapsed_hours
+    return min(max(km, projected), float(valid_until))
+
+
 def parse_route(payload: dict) -> list[tuple[float, float]]:
     containers = payload.get("containers", [])
     mp = next((c for c in containers if c.get("type") == "map"), None)
@@ -184,7 +211,7 @@ def project_runner(
 ) -> dict:
     pos = row.get("position_data") or {}
     state = pos.get("state") or "unknown"
-    km = float(pos.get("pos_km") or 0)
+    km = _project_position_km(pos, state)
     coord = coordinate_at_km(route, cum, km) if route else None
     full = row.get("__fullname")
     first, last = _split_full_name(full)

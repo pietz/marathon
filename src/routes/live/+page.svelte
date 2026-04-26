@@ -61,7 +61,7 @@
 	let activeId = $state<string | null>(null);
 	let lastUpdate = $state<string | null>(null);
 	let flashing = $state(false);
-	let pieEl: HTMLElement | null = $state(null);
+	let refreshing = false;
 
 	let mapEl: HTMLDivElement;
 	let map: any;
@@ -70,6 +70,7 @@
 	let routeGlowLayer: any;
 	const markerLayer = new Map<string, any>();
 	let searchTimer: ReturnType<typeof setTimeout> | null = null;
+	let pollTimer: ReturnType<typeof setInterval> | null = null;
 
 	// ---- URL sync ----------------------------------------------------------
 	function readBibsFromURL(): string[] {
@@ -122,6 +123,8 @@
 
 	async function refreshRunners() {
 		if (!selected.length) return;
+		if (refreshing) return;
+		refreshing = true;
 		flashing = true;
 		setTimeout(() => { flashing = false; }, 480);
 		try {
@@ -137,6 +140,8 @@
 			renderMarkers();
 		} catch (e) {
 			console.error('runners fetch failed', e);
+		} finally {
+			refreshing = false;
 		}
 	}
 
@@ -277,6 +282,7 @@
 		for (const r of selected) {
 			if (!r.coordinate || !r.bib) continue;
 			const isActive = r.bib === activeId;
+			const isGps = r.source === 'gps_mtta';
 			const html = `
 				<span class="ring" style="--c: ${r.color}"></span>
 				<span class="dot" style="background: ${r.color}"></span>
@@ -286,10 +292,13 @@
 			if (existing) {
 				existing.setLatLng(r.coordinate);
 				const el = existing.getElement();
-				if (el) el.classList.toggle('is-active', isActive);
+				if (el) {
+					el.classList.toggle('is-active', isActive);
+					el.classList.toggle('is-gps', isGps);
+				}
 			} else {
 				const icon = L.divIcon({
-					className: `rm${isActive ? ' is-active' : ''}`,
+					className: `rm${isActive ? ' is-active' : ''}${isGps ? ' is-gps' : ''}`,
 					html,
 					iconSize: [0, 0]
 				});
@@ -337,18 +346,13 @@
 			}));
 			await refreshRunners();
 		}
-	});
 
-	// Each full pie cycle completes the polling interval — fetch + flash on tick.
-	$effect(() => {
-		if (!pieEl) return;
-		const onTick = () => refreshRunners();
-		pieEl.addEventListener('animationiteration', onTick);
-		return () => pieEl.removeEventListener('animationiteration', onTick);
+		pollTimer = setInterval(refreshRunners, POLL_MS);
 	});
 
 	onDestroy(() => {
 		if (searchTimer) clearTimeout(searchTimer);
+		if (pollTimer) clearInterval(pollTimer);
 		if (map) map.remove();
 	});
 
@@ -373,7 +377,7 @@
 	<meta name="theme-color" content="#e6e9ee" />
 	<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 	<link rel="preconnect" href="https://fonts.googleapis.com" />
-	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous" />
 	<link
 		rel="stylesheet"
 		href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap"
@@ -475,7 +479,7 @@
 					: 'Aktualisiert gerade…'}
 				aria-live="polite"
 			>
-				<span class="pie" bind:this={pieEl} aria-hidden="true"></span>
+				<span class="pie" aria-hidden="true"></span>
 			</div>
 		{:else}
 			<p class="title">
@@ -857,7 +861,10 @@
 		transition: opacity 200ms ease;
 		z-index: 1;
 	}
-	:global(.rm.is-active .ring) {
+	:global(.rm.is-gps .ring) {
+		opacity: 0.75;
+	}
+	:global(.rm.is-gps.is-active .ring) {
 		opacity: 1;
 		animation: marker-pulse 1.6s ease-out infinite;
 	}
